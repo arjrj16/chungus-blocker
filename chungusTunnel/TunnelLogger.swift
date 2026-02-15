@@ -1,7 +1,7 @@
 import Foundation
 
 /// Writes log lines to a shared file in the app group container so the main app can display them.
-/// Both the app and extension have access to group.com.arjun.chungus.
+/// Both the app and extension have access via the shared app group.
 final class TunnelLogger {
 
     static let shared = TunnelLogger()
@@ -9,25 +9,36 @@ final class TunnelLogger {
     private let fileURL: URL?
     private let lock = NSLock()
 
+    private static let dateFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        return f
+    }()
+
     private init() {
-        if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.arjun.chungus") {
-            self.fileURL = container.appendingPathComponent("tunnel_log.txt")
+        if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: BubbleConstants.appGroupID) {
+            self.fileURL = container.appendingPathComponent(BubbleConstants.logFileName)
         } else {
             self.fileURL = nil
         }
     }
 
     func log(_ message: String, function: String = #function) {
-        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let timestamp = Self.dateFormatter.string(from: Date())
         let line = "[\(timestamp)] [\(function)] \(message)\n"
 
-        // Also log to system log so Console.app can pick it up
         NSLog("[TunnelLog] %@", message)
 
         guard let fileURL = fileURL else { return }
 
         lock.lock()
         defer { lock.unlock() }
+
+        // Log rotation: if file exceeds max size, trim to last half
+        if let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+           let size = attrs[.size] as? Int,
+           size > BubbleConstants.maxLogSizeBytes {
+            rotateLog(at: fileURL)
+        }
 
         if let handle = try? FileHandle(forWritingTo: fileURL) {
             handle.seekToEndOfFile()
@@ -42,14 +53,26 @@ final class TunnelLogger {
 
     func clear() {
         guard let fileURL = fileURL else { return }
+        lock.lock()
+        defer { lock.unlock() }
         try? "".data(using: .utf8)?.write(to: fileURL, options: .atomic)
     }
 
     static func readLog() -> String {
-        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.arjun.chungus") else {
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: BubbleConstants.appGroupID) else {
             return "(no app group container)"
         }
-        let fileURL = container.appendingPathComponent("tunnel_log.txt")
+        let fileURL = container.appendingPathComponent(BubbleConstants.logFileName)
         return (try? String(contentsOf: fileURL, encoding: .utf8)) ?? "(no logs yet)"
+    }
+
+    // MARK: - Private
+
+    private func rotateLog(at fileURL: URL) {
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return }
+        let lines = content.components(separatedBy: "\n")
+        let keepFrom = lines.count / 2
+        let trimmed = lines[keepFrom...].joined(separator: "\n")
+        try? trimmed.data(using: .utf8)?.write(to: fileURL, options: .atomic)
     }
 }

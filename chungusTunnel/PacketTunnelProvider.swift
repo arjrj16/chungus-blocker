@@ -16,13 +16,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         // Step 1: Network settings
         log.log("STEP 1: Setting tunnel network settings...")
 
-        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "198.18.0.1")
-        let ipv4 = NEIPv4Settings(addresses: ["198.18.0.2"], subnetMasks: ["255.255.255.0"])
+        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: BubbleConstants.tunnelRemoteAddress)
+        let ipv4 = NEIPv4Settings(
+            addresses: [BubbleConstants.tunnelLocalAddress],
+            subnetMasks: [BubbleConstants.tunnelSubnetMask]
+        )
         ipv4.includedRoutes = [NEIPv4Route.default()]
         settings.ipv4Settings = ipv4
-        let dns = NEDNSSettings(servers: ["8.8.8.8", "1.1.1.1"])
+        let dns = NEDNSSettings(servers: BubbleConstants.dnsServers)
         settings.dnsSettings = dns
-        settings.mtu = 9000
+        settings.mtu = BubbleConstants.mtu
 
         setTunnelNetworkSettings(settings) { error in
             if let error = error {
@@ -32,7 +35,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
             self.log.log("STEP 1 SUCCESS: Network settings applied, utun created")
 
-            // Step 2: Start SOCKS5 proxy (OS picks any available port)
+            // Step 2: Start SOCKS5 proxy
             self.log.log("STEP 2: Starting SOCKS5 proxy...")
             let proxy = SOCKSProxyServer(filter: self.filter)
             self.proxyServer = proxy
@@ -47,19 +50,19 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 let proxyPort = proxy.actualPort
                 self.log.log("STEP 2 SUCCESS: SOCKS5 proxy is ready on port \(proxyPort)")
 
-                // Step 3: Start tun2socks with the actual proxy port
+                // Step 3: Start tun2socks
                 self.log.log("STEP 3: Starting tun2socks...")
                 let config = """
                 tunnel:
-                  mtu: 9000
+                  mtu: \(BubbleConstants.mtu)
                 socks5:
                   port: \(proxyPort)
-                  address: 127.0.0.1
+                  address: \(BubbleConstants.socksBindAddress)
                 misc:
-                  task-stack-size: 24576
-                  tcp-buffer-size: 4096
-                  connect-timeout: 5000
-                  read-write-timeout: 60000
+                  task-stack-size: \(BubbleConstants.tun2socksTaskStackSize)
+                  tcp-buffer-size: \(BubbleConstants.tun2socksTCPBufferSize)
+                  connect-timeout: \(BubbleConstants.tun2socksConnectTimeout)
+                  read-write-timeout: \(BubbleConstants.tun2socksReadWriteTimeout)
                   log-level: info
                 """
                 self.log.log("STEP 3: tun2socks config:\n\(config)")
@@ -71,7 +74,6 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                     }
                 }
 
-                // Brief delay then check stats to confirm tun2socks is running
                 DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
                     let stats = Socks5Tunnel.stats
                     self.log.log("STEP 3 CHECK: tun2socks stats after 1s — up: \(stats.up.packets) pkts, down: \(stats.down.packets) pkts")
