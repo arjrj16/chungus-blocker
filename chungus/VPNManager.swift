@@ -11,6 +11,7 @@ final class VPNManager: ObservableObject {
 
     private var manager: NETunnelProviderManager?
     private var statusObserver: NSObjectProtocol?
+    private var autoConnect = true
 
     deinit {
         if let observer = statusObserver {
@@ -73,6 +74,9 @@ final class VPNManager: ObservableObject {
                     self.appendLog("Found existing profile. Status: \(self.statusString)")
                     self.appendLog("Bundle ID: \((mgr.protocolConfiguration as? NETunnelProviderProtocol)?.providerBundleIdentifier ?? "nil")")
                     self.observeStatusChanges(for: mgr)
+                    if self.autoConnect && mgr.connection.status != .connected && mgr.connection.status != .connecting {
+                        self.startVPN()
+                    }
                 } else {
                     self.createVPNProfile()
                 }
@@ -131,7 +135,20 @@ final class VPNManager: ObservableObject {
             return
         }
 
-        appendLog("Toggle VPN: current status = \(statusString)")
+        if manager.connection.status == .connected || manager.connection.status == .connecting {
+            stopVPN()
+        } else {
+            startVPN()
+        }
+    }
+
+    func startVPN() {
+        guard let manager = self.manager else {
+            appendLog("ERROR: Manager not ready")
+            return
+        }
+
+        appendLog("Starting VPN...")
 
         manager.loadFromPreferences { [weak self] error in
             Task { @MainActor [weak self] in
@@ -151,23 +168,27 @@ final class VPNManager: ObservableObject {
                         }
 
                         do {
-                            if manager.connection.status == .connected {
-                                self.appendLog("Stopping VPN tunnel...")
-                                manager.connection.stopVPNTunnel()
-                            } else {
-                                self.appendLog("Starting VPN tunnel...")
-                                try manager.connection.startVPNTunnel()
-                                self.appendLog("startVPNTunnel() called successfully")
-                            }
+                            self.appendLog("Starting VPN tunnel...")
+                            try manager.connection.startVPNTunnel()
+                            self.appendLog("startVPNTunnel() called successfully")
                         } catch {
                             let nsError = error as NSError
-                            self.appendLog("ERROR toggling: \(error.localizedDescription)")
+                            self.appendLog("ERROR starting: \(error.localizedDescription)")
                             self.appendLog("Error details: \(nsError.domain) code \(nsError.code)")
                         }
                     }
                 }
             }
         }
+    }
+
+    private func stopVPN() {
+        guard let manager = self.manager else {
+            appendLog("ERROR: Manager not ready")
+            return
+        }
+        appendLog("Stopping VPN tunnel...")
+        manager.connection.stopVPNTunnel()
     }
 
     // MARK: - Display Helpers

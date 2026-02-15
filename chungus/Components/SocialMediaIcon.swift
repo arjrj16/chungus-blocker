@@ -70,10 +70,10 @@ struct FacebookIcon: View {
 
 struct KalshiIcon: View {
     let size: CGFloat
-    
+
     var body: some View {
         SVGView(svgName: "kalshi")
-            .frame(width: size * 0.9, height: size * 0.4)
+            .frame(width: size * 0.7, height: size * 0.7)
     }
 }
 

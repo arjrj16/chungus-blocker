@@ -2,32 +2,48 @@ import SwiftUI
 import Charts
 
 struct TrafficDashboardView: View {
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var monitor = TrafficMonitor()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Section 1: Stats counters (tappable)
-                StatsCountersView(stats: monitor.current?.stats, events: monitor.events)
+        ZStack {
+            SkyBackgroundView()
 
-                // Section 2: Top 5 Domains
-                TopDomainsChartView(domains: Array((monitor.current?.topDomains ?? []).prefix(5)))
+            ScrollView {
+                VStack(spacing: BubbleSpacing.md) {
+                    // Section 1: Stats counters (tappable)
+                    StatsCountersView(stats: monitor.current?.stats, events: monitor.events)
 
-                // Section 3: Cumulative bytes timeline
-                BytesTimelineView(history: monitor.history)
+                    // Section 2: Top 5 Domains
+                    TopDomainsChartView(domains: Array((monitor.current?.topDomains ?? []).prefix(5)))
 
-                // Section 4: Instant bytes timeline
-                InstantBytesView(history: monitor.history)
+                    // Section 3: Cumulative bytes timeline
+                    BytesTimelineView(history: monitor.history)
 
-                // Section 5: Active connections
-                ActiveConnectionsView(
-                    connections: monitor.current?.connections ?? []
-                )
+                    // Section 4: Instant bytes timeline
+                    InstantBytesView(history: monitor.history)
+
+                    // Section 5: Active connections
+                    ActiveConnectionsView(
+                        connections: monitor.current?.connections ?? []
+                    )
+                }
+                .padding(.horizontal, BubbleSpacing.lg)
+                .padding(.top, BubbleSpacing.xl)
+                .padding(.bottom, 100)
             }
-            .padding()
         }
-        .navigationTitle("Traffic Dashboard")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { dismiss() } label: { BackArrowView() }
+            }
+            ToolbarItem(placement: .principal) {
+                Text("TRAFFIC")
+                    .font(BubbleFonts.headerTitle)
+                    .foregroundColor(.white)
+            }
+        }
         .onAppear { monitor.startPolling() }
         .onDisappear { monitor.stopPolling() }
     }
@@ -78,66 +94,88 @@ private struct StatBox: View {
     let color: Color
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: BubbleSpacing.xs) {
             Text("\(value)")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .font(BubbleFonts.pupok(size: 24))
                 .foregroundColor(color)
             Text(label)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                .font(BubbleFonts.coolvetica(size: 12))
+                .foregroundColor(BubbleColors.white60)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
+        .background(Color.white.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
 // MARK: - Event List
 
 struct EventListView: View {
+    @Environment(\.dismiss) private var dismiss
     let title: String
     let events: [TrafficEvent]
     let color: Color
 
     var body: some View {
-        List {
-            ForEach(events.reversed()) { event in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        EventTypeBadge(type: event.type)
-                        Spacer()
-                        Text(event.timestamp, style: .time)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
+        ZStack {
+            SkyBackgroundView()
 
-                    Text(event.sni ?? event.host)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .lineLimit(1)
+            ScrollView {
+                LazyVStack(spacing: BubbleSpacing.sm) {
+                    ForEach(events.reversed()) { event in
+                        VStack(alignment: .leading, spacing: BubbleSpacing.xs) {
+                            HStack {
+                                EventTypeBadge(type: event.type)
+                                Spacer()
+                                Text(event.timestamp, style: .time)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(BubbleColors.white60)
+                            }
 
-                    if event.host != event.sni ?? "" {
-                        Text("\(event.host):\(event.port)")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                    }
+                            Text(event.sni ?? event.host)
+                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
 
-                    Text(event.detail)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                            if event.host != event.sni ?? "" {
+                                Text("\(event.host):\(event.port)")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(BubbleColors.white60)
+                            }
 
-                    if let bytes = event.bytesDown, bytes > 0 {
-                        Text(formatBytes(bytes) + " down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.blue)
+                            Text(event.detail)
+                                .font(BubbleFonts.coolvetica(size: 12))
+                                .foregroundColor(BubbleColors.white60)
+                                .lineLimit(2)
+
+                            if let bytes = event.bytesDown, bytes > 0 {
+                                Text(formatBytes(bytes) + " down")
+                                    .font(BubbleFonts.coolvetica(size: 12))
+                                    .foregroundColor(BubbleColors.skyBlue)
+                            }
+                        }
+                        .padding(BubbleSpacing.sm)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.horizontal, BubbleSpacing.lg)
+                .padding(.top, BubbleSpacing.xl)
+                .padding(.bottom, 100)
             }
         }
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { dismiss() } label: { BackArrowView() }
+            }
+            ToolbarItem(placement: .principal) {
+                Text(title.uppercased())
+                    .font(BubbleFonts.headerTitle)
+                    .foregroundColor(.white)
+            }
+        }
     }
 }
 
@@ -181,14 +219,15 @@ private struct TopDomainsChartView: View {
     let domains: [DomainSnapshot]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: BubbleSpacing.sm) {
             Text("Top Domains")
-                .font(.headline)
+                .font(BubbleFonts.pupok(size: 20))
+                .foregroundColor(.white)
 
             if domains.isEmpty {
                 Text("No data yet")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(BubbleFonts.coolvetica(size: 14))
+                    .foregroundColor(BubbleColors.white60)
                     .frame(height: 150)
                     .frame(maxWidth: .infinity)
             } else {
@@ -197,11 +236,11 @@ private struct TopDomainsChartView: View {
                         x: .value("Bytes", domain.totalBytes),
                         y: .value("Domain", shortDomain(domain.domain))
                     )
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(BubbleColors.skyBlue)
                     .annotation(position: .trailing, alignment: .leading) {
                         Text("\(domain.count)x")
-                            .font(.system(size: 9))
-                            .foregroundColor(.secondary)
+                            .font(BubbleFonts.coolvetica(size: 10))
+                            .foregroundColor(BubbleColors.white60)
                     }
                 }
                 .chartXAxis {
@@ -210,16 +249,23 @@ private struct TopDomainsChartView: View {
                             if let bytes = value.as(Int.self) {
                                 Text(formatBytes(bytes))
                                     .font(.system(size: 9))
+                                    .foregroundColor(BubbleColors.white60)
                             }
                         }
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks { _ in
+                        AxisValueLabel()
+                            .foregroundStyle(Color.white)
                     }
                 }
                 .frame(height: CGFloat(max(domains.count, 1) * 36 + 30))
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .padding(BubbleSpacing.md)
+        .background(Color.white.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func shortDomain(_ domain: String) -> String {
@@ -246,14 +292,15 @@ private struct BytesTimelineView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: BubbleSpacing.sm) {
             Text("Cumulative Bytes Down")
-                .font(.headline)
+                .font(BubbleFonts.pupok(size: 20))
+                .foregroundColor(.white)
 
             if history.isEmpty {
                 Text("No data yet")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(BubbleFonts.coolvetica(size: 14))
+                    .foregroundColor(BubbleColors.white60)
                     .frame(height: 180)
                     .frame(maxWidth: .infinity)
             } else {
@@ -263,13 +310,13 @@ private struct BytesTimelineView: View {
                             x: .value("Time", point.0),
                             y: .value("Bytes", point.1)
                         )
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(BubbleColors.skyBlue)
 
                         AreaMark(
                             x: .value("Time", point.0),
                             y: .value("Bytes", point.1)
                         )
-                        .foregroundStyle(.blue.opacity(0.1))
+                        .foregroundStyle(BubbleColors.skyBlue.opacity(0.15))
                     }
                 }
                 .chartYAxis {
@@ -278,16 +325,23 @@ private struct BytesTimelineView: View {
                             if let bytes = value.as(Int.self) {
                                 Text(formatBytes(bytes))
                                     .font(.system(size: 9))
+                                    .foregroundColor(BubbleColors.white60)
                             }
                         }
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks { _ in
+                        AxisValueLabel()
+                            .foregroundStyle(BubbleColors.white60)
                     }
                 }
                 .frame(height: 180)
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .padding(BubbleSpacing.md)
+        .background(Color.white.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -318,14 +372,15 @@ private struct InstantBytesView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: BubbleSpacing.sm) {
             Text("Bytes Down (per snapshot)")
-                .font(.headline)
+                .font(BubbleFonts.pupok(size: 20))
+                .foregroundColor(.white)
 
             if history.isEmpty {
                 Text("No data yet")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(BubbleFonts.coolvetica(size: 14))
+                    .foregroundColor(BubbleColors.white60)
                     .frame(height: 180)
                     .frame(maxWidth: .infinity)
             } else {
@@ -335,7 +390,7 @@ private struct InstantBytesView: View {
                             x: .value("Time", point.0),
                             y: .value("Bytes", point.1)
                         )
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.white.opacity(0.6))
                     }
                 }
                 .chartYAxis {
@@ -344,16 +399,23 @@ private struct InstantBytesView: View {
                             if let bytes = value.as(Int.self) {
                                 Text(formatBytes(bytes))
                                     .font(.system(size: 9))
+                                    .foregroundColor(BubbleColors.white60)
                             }
                         }
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks { _ in
+                        AxisValueLabel()
+                            .foregroundStyle(BubbleColors.white60)
                     }
                 }
                 .frame(height: 180)
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .padding(BubbleSpacing.md)
+        .background(Color.white.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -371,14 +433,15 @@ private struct ActiveConnectionsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: BubbleSpacing.sm) {
             Text("Active Connections (\(activeConns.count))")
-                .font(.headline)
+                .font(BubbleFonts.pupok(size: 20))
+                .foregroundColor(.white)
 
             if activeConns.isEmpty && recentlyClosedConns.isEmpty {
                 Text("No connections")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(BubbleFonts.coolvetica(size: 14))
+                    .foregroundColor(BubbleColors.white60)
             }
 
             ForEach(activeConns) { conn in
@@ -387,9 +450,9 @@ private struct ActiveConnectionsView: View {
 
             if !recentlyClosedConns.isEmpty {
                 Text("Recently Closed")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
+                    .font(BubbleFonts.coolvetica(size: 16))
+                    .foregroundColor(BubbleColors.white60)
+                    .padding(.top, BubbleSpacing.xs)
 
                 ForEach(recentlyClosedConns) { conn in
                     ConnectionRow(connection: conn)
@@ -397,9 +460,9 @@ private struct ActiveConnectionsView: View {
                 }
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .padding(BubbleSpacing.md)
+        .background(Color.white.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -412,18 +475,20 @@ private struct ConnectionRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(connection.sni ?? connection.host)
                         .font(.system(size: 13, design: .monospaced))
+                        .foregroundColor(.white)
                         .lineLimit(1)
                     Text("#\(connection.id) · \(connection.host):\(connection.port)")
                         .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(BubbleColors.white60)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(formatBytes(connection.totalBytes))
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(BubbleFonts.pupok(size: 14))
+                        .foregroundColor(.white)
                     Text(durationString(from: connection.startTime))
                         .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(BubbleColors.white60)
                 }
             }
 
@@ -432,32 +497,32 @@ private struct ConnectionRow: View {
                 HStack(spacing: 1) {
                     let total = max(connection.totalBytes, 1)
                     Rectangle()
-                        .fill(Color.orange)
+                        .fill(BubbleColors.skyBlue)
                         .frame(width: geo.size.width * CGFloat(connection.bytesUp) / CGFloat(total))
                     Rectangle()
-                        .fill(Color.blue)
+                        .fill(Color.white.opacity(0.4))
                         .frame(width: geo.size.width * CGFloat(connection.bytesDown) / CGFloat(total))
                 }
             }
             .frame(height: 4)
-            .cornerRadius(2)
+            .clipShape(RoundedRectangle(cornerRadius: 2))
 
             HStack {
                 Label(formatBytes(connection.bytesUp), systemImage: "arrow.up")
                     .font(.system(size: 9))
-                    .foregroundColor(.orange)
+                    .foregroundColor(BubbleColors.skyBlue)
                 Spacer()
                 Label(formatBytes(connection.bytesDown), systemImage: "arrow.down")
                     .font(.system(size: 9))
-                    .foregroundColor(.blue)
+                    .foregroundColor(BubbleColors.white60)
             }
         }
-        .padding(10)
-        .background(Color(.systemBackground))
-        .cornerRadius(8)
+        .padding(BubbleSpacing.sm)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(connection.isActive ? Color.green.opacity(0.4) : Color.gray.opacity(0.2), lineWidth: 1)
+                .stroke(connection.isActive ? Color.white.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
         )
     }
 

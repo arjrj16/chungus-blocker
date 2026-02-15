@@ -2,6 +2,7 @@ import SwiftUI
 import NetworkExtension
 
 struct SettingsScreen: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var vpnManager: VPNManager
 
     @AppStorage(BubbleConstants.blockReelsEnabledKey,
@@ -47,7 +48,7 @@ struct SettingsScreen: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
-                    // Handled by NavigationStack pop
+                    dismiss()
                 } label: {
                     BackArrowView()
                 }
@@ -209,6 +210,7 @@ struct SettingsScreen: View {
 // MARK: - Extension Log View (standalone route)
 
 struct ExtensionLogView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var vpnManager: VPNManager
 
     var body: some View {
@@ -227,7 +229,7 @@ struct ExtensionLogView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button { } label: { BackArrowView() }
+                Button { dismiss() } label: { BackArrowView() }
             }
             ToolbarItem(placement: .primaryAction) {
                 HStack {

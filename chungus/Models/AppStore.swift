@@ -35,6 +35,16 @@ final class AppStore {
                 BlockingOption(id: "trades", label: "trades", isEnabled: true),
                 BlockingOption(id: "notifs", label: "notifs", isEnabled: false)
             ]
+        ),
+        BlockedApp(
+            id: "fanduel",
+            name: "FANDUEL",
+            iconName: "sportscourt.fill",
+            platform: "fanduel",
+            options: [
+                BlockingOption(id: "bets", label: "bets", isEnabled: true),
+                BlockingOption(id: "notifs", label: "notifs", isEnabled: false)
+            ]
         )
     ]
 
