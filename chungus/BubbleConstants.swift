@@ -44,11 +44,16 @@ enum BubbleConstants {
         "gateway.instagram.com",
         "test-gateway.instagram.com",
         "edge-mqtt.facebook.com",
+        "fbcdn.net",
+        "fbvideo.net",
+        "fbsbx.com",
+        "instagram.net",
     ]
 
     // MARK: - UserDefaults Keys
     static let blockReelsEnabledKey = "blockReelsEnabled"
     static let domainThresholdsKey = "domainThresholds"
+    static let optionStatesKey = "optionStates"
 
     // MARK: - VPN
     static let vpnDescription = "Bubble Blocker"

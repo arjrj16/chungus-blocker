@@ -700,6 +700,7 @@ final class SOCKSProxyServer {
         var logged = false
         var sni: String?
         var sniExtracted = false
+        var loggedUntracked = false
 
         init(id: Int, host: String, port: UInt16) {
             self.id = id
@@ -823,21 +824,28 @@ final class SOCKSProxyServer {
                         if let sni = self.extractSNI(from: data) {
                             tracker.sni = sni
                             self.log.logConnection("TCP #\(tracker.id): SNI=\(sni) IP=\(tracker.host):\(tracker.port)")
+                            TunnelLogger.connectionLog.log("[SNI] \(sni, privacy: .public)")
                         }
                     }
                 case .download:
                     tracker.bytesDown += data.count
 
                     // Stream blocking: per-domain byte thresholds
-                    if let sni = tracker.sni,
-                       let threshold = self.filter.streamBlockThreshold(for: sni),
-                       tracker.bytesDown > threshold {
-                        self.log.log("STREAM BLOCK #\(tracker.id): killed \(sni) at \(tracker.bytesDown)B (threshold: \(threshold)B)")
-                        self.recordEvent(type: .streamBlocked, connId: tracker.id, host: tracker.host, port: tracker.port, sni: sni, detail: "Killed at \(tracker.bytesDown)B (threshold: \(threshold)B)", bytesDown: tracker.bytesDown)
-                        self.logRelayEnd(tracker: tracker, reason: "stream-blocked")
-                        source.cancel()
-                        destination.cancel()
-                        return
+                    if let sni = tracker.sni {
+                        if let threshold = self.filter.streamBlockThreshold(for: sni),
+                           tracker.bytesDown > threshold {
+                            self.log.log("STREAM BLOCK #\(tracker.id): killed \(sni) at \(tracker.bytesDown)B (threshold: \(threshold)B)")
+                            self.recordEvent(type: .streamBlocked, connId: tracker.id, host: tracker.host, port: tracker.port, sni: sni, detail: "Killed at \(tracker.bytesDown)B (threshold: \(threshold)B)", bytesDown: tracker.bytesDown)
+                            self.logRelayEnd(tracker: tracker, reason: "stream-blocked")
+                            source.cancel()
+                            destination.cancel()
+                            return
+                        }
+                        // Log untracked domains receiving large downloads (potential failover)
+                        if self.filter.streamBlockThreshold(for: sni) == nil && tracker.bytesDown > 100_000 && !tracker.loggedUntracked {
+                            tracker.loggedUntracked = true
+                            TunnelLogger.connectionLog.log("[UNTRACKED-LARGE] \(sni, privacy: .public) \(tracker.bytesDown, privacy: .public)B+ (no blocking rule)")
+                        }
                     }
                 }
                 destination.send(content: data, completion: .contentProcessed { sendError in

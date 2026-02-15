@@ -5,12 +5,12 @@
       {
         "id": "reels",
         "label": "reels",
-        "isSelected": true
+        "isSelected": false
       },
       {
         "id": "msgs",
         "label": "msgs",
-        "isSelected": true
+        "isSelected": false
       },
       {
         "id": "ex-gf",
@@ -30,7 +30,7 @@
       {
         "id": "alerts",
         "label": "alerts",
-        "isSelected": true
+        "isSelected": false
       },
       {
         "id": "feeds",
@@ -45,7 +45,7 @@
       {
         "id": "trades",
         "label": "trades",
-        "isSelected": true
+        "isSelected": false
       },
       {
         "id": "notifs",
