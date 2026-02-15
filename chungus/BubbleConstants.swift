@@ -2,8 +2,8 @@ import Foundation
 
 enum BubbleConstants {
     // MARK: - Identifiers
-    static let appGroupID = "group.com.arjun.chungus"
-    static let tunnelBundleID = "com.arjun.chungus.chungusTunnel"
+    static let appGroupID = "group.com.arjun.chungus.merge"
+    static let tunnelBundleID = "com.arjun.chungus.merge.chungusTunnel"
 
     // MARK: - Network Settings
     static let tunnelRemoteAddress = "198.18.0.1"
@@ -31,7 +31,7 @@ enum BubbleConstants {
     static let logFileName = "tunnel_log.txt"
     static let maxLogSizeBytes = 512 * 1024
     static let maxStatusLogEntries = 200
-    static let logSubsystem = "com.arjun.chungus.chungusTunnel"
+    static let logSubsystem = "com.arjun.chungus.merge.chungusTunnel"
     static let statsFileName = "traffic_stats.json"
 
     // MARK: - Stream Blocking

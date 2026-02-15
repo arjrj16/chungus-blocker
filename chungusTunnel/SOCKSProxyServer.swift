@@ -45,7 +45,7 @@ final class SOCKSProxyServer {
 
     private var listener: NWListener?
     private let filter: ConnectionFilter
-    private let queue = DispatchQueue(label: "com.arjun.chungus.socks5", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.arjun.chungus.merge.socks5", qos: .userInitiated)
     private let log = TunnelLogger.shared
     private var connectionCount = 0      // total connections ever (used as ID)
     private var activeConnectionCount = 0 // currently open connections
