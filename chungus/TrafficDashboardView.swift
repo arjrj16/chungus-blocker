@@ -7,8 +7,8 @@ struct TrafficDashboardView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Section 1: Stats counters
-                StatsCountersView(stats: monitor.current?.stats)
+                // Section 1: Stats counters (tappable)
+                StatsCountersView(stats: monitor.current?.stats, events: monitor.events)
 
                 // Section 2: Top 5 Domains
                 TopDomainsChartView(domains: Array((monitor.current?.topDomains ?? []).prefix(5)))
@@ -37,13 +37,37 @@ struct TrafficDashboardView: View {
 
 private struct StatsCountersView: View {
     let stats: StatsSnapshot?
+    let events: [TrafficEvent]
 
     var body: some View {
         HStack(spacing: 12) {
-            StatBox(label: "Total", value: stats?.totalConns ?? 0, color: .primary)
-            StatBox(label: "Allowed", value: stats?.tcpAllowed ?? 0, color: .green)
-            StatBox(label: "Blocked", value: stats?.tcpBlocked ?? 0, color: .red)
-            StatBox(label: "Errors", value: stats?.errors ?? 0, color: .orange)
+            NavigationLink {
+                EventListView(title: "All Events", events: events, color: .primary)
+            } label: {
+                StatBox(label: "Total", value: stats?.totalConns ?? 0, color: .primary)
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink {
+                EventListView(title: "Allowed", events: events.filter { $0.type == .allowed || $0.type == .completed }, color: .green)
+            } label: {
+                StatBox(label: "Allowed", value: stats?.tcpAllowed ?? 0, color: .green)
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink {
+                EventListView(title: "Blocked", events: events.filter { $0.type == .blocked || $0.type == .streamBlocked }, color: .red)
+            } label: {
+                StatBox(label: "Blocked", value: stats?.tcpBlocked ?? 0, color: .red)
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink {
+                EventListView(title: "Errors", events: events.filter { $0.type == .error }, color: .orange)
+            } label: {
+                StatBox(label: "Errors", value: stats?.errors ?? 0, color: .orange)
+            }
+            .buttonStyle(.plain)
         }
     }
 }
@@ -66,6 +90,88 @@ private struct StatBox: View {
         .padding(.vertical, 10)
         .background(Color(.systemGray6))
         .cornerRadius(10)
+    }
+}
+
+// MARK: - Event List
+
+struct EventListView: View {
+    let title: String
+    let events: [TrafficEvent]
+    let color: Color
+
+    var body: some View {
+        List {
+            ForEach(events.reversed()) { event in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        EventTypeBadge(type: event.type)
+                        Spacer()
+                        Text(event.timestamp, style: .time)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(event.sni ?? event.host)
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .lineLimit(1)
+
+                    if event.host != event.sni ?? "" {
+                        Text("\(event.host):\(event.port)")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text(event.detail)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+
+                    if let bytes = event.bytesDown, bytes > 0 {
+                        Text(formatBytes(bytes) + " down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.blue)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct EventTypeBadge: View {
+    let type: EventType
+
+    private var label: String {
+        switch type {
+        case .allowed: return "ALLOWED"
+        case .blocked: return "BLOCKED"
+        case .streamBlocked: return "STREAM BLOCKED"
+        case .error: return "ERROR"
+        case .completed: return "COMPLETED"
+        }
+    }
+
+    private var badgeColor: Color {
+        switch type {
+        case .allowed: return .green
+        case .blocked: return .red
+        case .streamBlocked: return .red
+        case .error: return .orange
+        case .completed: return .blue
+        }
+    }
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 9, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(badgeColor)
+            .cornerRadius(4)
     }
 }
 

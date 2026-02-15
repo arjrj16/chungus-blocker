@@ -34,8 +34,21 @@ enum BubbleConstants {
     static let logSubsystem = "com.arjun.chungus.chungusTunnel"
     static let statsFileName = "traffic_stats.json"
 
+    // MARK: - Stream Blocking
+    static let streamBlockDefaultThreshold = 512 * 1024  // 0.5 MB
+    static let noLimitThreshold = -1
+    static let trackedDomains = [
+        "cdninstagram.com",
+        "i.instagram.com",
+        "graph.instagram.com",
+        "gateway.instagram.com",
+        "test-gateway.instagram.com",
+        "edge-mqtt.facebook.com",
+    ]
+
     // MARK: - UserDefaults Keys
     static let blockReelsEnabledKey = "blockReelsEnabled"
+    static let domainThresholdsKey = "domainThresholds"
 
     // MARK: - VPN
     static let vpnDescription = "Bubble Blocker"

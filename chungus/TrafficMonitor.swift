@@ -5,6 +5,7 @@ import Combine
 final class TrafficMonitor: ObservableObject {
     @Published var current: TrafficSnapshot?
     @Published var history: [TrafficSnapshot] = []
+    @Published var events: [TrafficEvent] = []
 
     private var timer: AnyCancellable?
     private let decoder: JSONDecoder = {
@@ -34,6 +35,7 @@ final class TrafficMonitor: ObservableObject {
 
     func clearHistory() {
         history.removeAll()
+        events.removeAll()
         current = nil
     }
 
@@ -44,16 +46,22 @@ final class TrafficMonitor: ObservableObject {
         }
     }
 
+    func events(ofType type: EventType) -> [TrafficEvent] {
+        events.filter { $0.type == type }
+    }
+
     private func refresh() {
         guard let url = statsFileURL,
               let data = try? Data(contentsOf: url) else {
             return
         }
 
-        // The tunnel writes the full history array now
-        if let snapshots = try? decoder.decode([TrafficSnapshot].self, from: data), !snapshots.isEmpty {
-            history = snapshots
-            current = snapshots.last
+        if let trafficData = try? decoder.decode(TrafficData.self, from: data) {
+            if !trafficData.snapshots.isEmpty {
+                history = trafficData.snapshots
+                current = trafficData.snapshots.last
+            }
+            events = trafficData.events
         }
     }
 }

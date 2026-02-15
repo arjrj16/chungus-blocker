@@ -6,6 +6,8 @@ import os
 
 protocol ConnectionFilter {
     func shouldAllow(host: String, port: UInt16) -> FilterDecision
+    func isStreamBlockTarget(_ domain: String) -> Bool
+    func streamBlockThreshold(for sni: String) -> Int?
 }
 
 enum FilterDecision {
@@ -45,7 +47,8 @@ final class SOCKSProxyServer {
     private let filter: ConnectionFilter
     private let queue = DispatchQueue(label: "com.arjun.chungus.socks5", qos: .userInitiated)
     private let log = TunnelLogger.shared
-    private var connectionCount = 0
+    private var connectionCount = 0      // total connections ever (used as ID)
+    private var activeConnectionCount = 0 // currently open connections
 
     // Thread-safe actual port (written on queue, read from outside)
     private let _actualPort = OSAllocatedUnfairLock(initialState: UInt16(0))
@@ -65,7 +68,10 @@ final class SOCKSProxyServer {
     private var domainStats: [String: (count: Int, bytes: Int)] = [:]
     private var snapshotTimer: DispatchSourceTimer?
     private var snapshotHistory: [TrafficSnapshot] = []
+    private var eventLog: [TrafficEvent] = []
+    private var eventCounter = 0
     private let maxSnapshotHistory = 300 // 5 minutes at 1/sec
+    private let maxEvents = 500
     private let statsFileURL: URL?
 
     init(filter: ConnectionFilter) {
@@ -160,10 +166,31 @@ final class SOCKSProxyServer {
             guard let self = self else { return }
             let total = self.connectionCount
             guard total > 0 else { return }
-            self.log.log("SOCKS5 STATS: \(total) conns, \(self.statsAllowed) TCP allowed, \(self.statsBlocked) blocked, \(self.statsUDP) UDP relayed, \(self.statsErrors) errors")
+            let memMB = Self.memoryUsageMB()
+            self.log.log("SOCKS5 STATS: \(total) total, \(self.activeConnectionCount) active, \(self.activeRelays.count) relays, \(self.statsAllowed) allowed, \(self.statsBlocked) blocked, \(self.statsUDP) UDP, \(self.statsErrors) errors, snapshots=\(self.snapshotHistory.count), mem=\(memMB)MB")
         }
         timer.resume()
         statsTimer = timer
+    }
+
+    // MARK: - Event Recording
+
+    private func recordEvent(type: EventType, connId: Int, host: String, port: UInt16, sni: String? = nil, detail: String, bytesDown: Int? = nil) {
+        eventCounter += 1
+        let event = TrafficEvent(
+            id: eventCounter,
+            timestamp: Date(),
+            type: type,
+            host: host,
+            port: port,
+            sni: sni,
+            detail: detail,
+            bytesDown: bytesDown
+        )
+        eventLog.append(event)
+        if eventLog.count > maxEvents {
+            eventLog.removeFirst(eventLog.count - maxEvents)
+        }
     }
 
     // MARK: - JSON Snapshot Writer
@@ -220,10 +247,11 @@ final class SOCKSProxyServer {
             snapshotHistory.removeFirst(snapshotHistory.count - maxSnapshotHistory)
         }
 
-        // Write full history array so the app gets all snapshots even when backgrounded
+        // Write full history + events so the app gets everything even when backgrounded
+        let trafficData = TrafficData(snapshots: snapshotHistory, events: eventLog)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(snapshotHistory) else { return }
+        guard let data = try? encoder.encode(trafficData) else { return }
         try? data.write(to: fileURL, options: .atomic)
     }
 
@@ -231,15 +259,21 @@ final class SOCKSProxyServer {
 
     private func handleNewConnection(_ client: NWConnection) {
         connectionCount += 1
+        activeConnectionCount += 1
 
-        if connectionCount > BubbleConstants.maxConnections {
-            log.log("SOCKS5: Connection limit reached (\(BubbleConstants.maxConnections)), rejecting")
+        if activeConnectionCount > BubbleConstants.maxConnections {
+            log.log("SOCKS5: Active connection limit reached (\(activeConnectionCount)/\(BubbleConstants.maxConnections)), rejecting #\(connectionCount)")
             statsErrors += 1
+            recordEvent(type: .error, connId: connectionCount, host: "?", port: 0, detail: "Connection limit reached (\(activeConnectionCount)/\(BubbleConstants.maxConnections))")
+            activeConnectionCount -= 1
             client.cancel()
             return
         }
 
         let id = connectionCount
+        if id % 50 == 0 {
+            log.log("SOCKS5 DIAG: conn #\(id), active=\(activeConnectionCount), relays=\(activeRelays.count), totalAllowed=\(statsAllowed), totalBlocked=\(statsBlocked), errors=\(statsErrors)")
+        }
         client.start(queue: queue)
         readMethodNegotiation(client: client, id: id)
     }
@@ -251,6 +285,8 @@ final class SOCKSProxyServer {
             guard let self = self, let data = data, error == nil else {
                 self?.log.log("SOCKS5 #\(id): Method negotiation failed: \(String(describing: error))")
                 self?.statsErrors += 1
+                self?.recordEvent(type: .error, connId: id, host: "?", port: 0, detail: "Method negotiation failed: \(String(describing: error))")
+                self?.activeConnectionCount -= 1
                 client.cancel()
                 return
             }
@@ -259,6 +295,7 @@ final class SOCKSProxyServer {
             guard bytes.count >= 3, bytes[0] == 0x05 else {
                 self.log.log("SOCKS5 #\(id): Invalid SOCKS version or short handshake (\(bytes.count) bytes)")
                 self.statsErrors += 1
+                self.activeConnectionCount -= 1
                 client.cancel()
                 return
             }
@@ -272,6 +309,7 @@ final class SOCKSProxyServer {
                 if error != nil {
                     self.log.log("SOCKS5 #\(id): Failed to send method reply: \(String(describing: error))")
                     self.statsErrors += 1
+                    self.activeConnectionCount -= 1
                     client.cancel()
                     return
                 }
@@ -294,6 +332,8 @@ final class SOCKSProxyServer {
             guard let self = self, let data = data, error == nil else {
                 self?.log.log("SOCKS5 #\(id): Request read failed: \(String(describing: error))")
                 self?.statsErrors += 1
+                self?.recordEvent(type: .error, connId: id, host: "?", port: 0, detail: "Request read failed: \(String(describing: error))")
+                self?.activeConnectionCount -= 1
                 client.cancel()
                 return
             }
@@ -306,6 +346,7 @@ final class SOCKSProxyServer {
 
         guard bytes.count >= 4, bytes[0] == 0x05 else {
             self.statsErrors += 1
+            self.activeConnectionCount -= 1
             log.log("SOCKS5 #\(id): Invalid request (ver=\(bytes.first.map(String.init) ?? "nil"), len=\(bytes.count))")
             client.cancel()
             return
@@ -317,6 +358,7 @@ final class SOCKSProxyServer {
         // Parse address using shared helper (ATYP is at byte index 3)
         guard let addr = parseSOCKSAddress(from: bytes, atypOffset: 3) else {
             self.statsErrors += 1
+            self.activeConnectionCount -= 1
             log.log("SOCKS5 #\(id): Failed to parse destination address")
             self.sendSocksError(client: client, reply: 0x08)
             return
@@ -341,6 +383,7 @@ final class SOCKSProxyServer {
 
         default:
             self.statsErrors += 1
+            self.activeConnectionCount -= 1
             log.log("SOCKS5 #\(id): unsupported cmd=\(cmd)")
             self.sendSocksError(client: client, reply: 0x07)
         }
@@ -399,11 +442,14 @@ final class SOCKSProxyServer {
         switch decision {
         case .block:
             self.statsBlocked += 1
+            self.activeConnectionCount -= 1
             self.log.log("SOCKS5 #\(id): BLOCKED \(host):\(port)")
+            self.recordEvent(type: .blocked, connId: id, host: host, port: port, detail: "Connection blocked by filter")
             self.sendSocksError(client: client, reply: 0x05)
 
         case .allow:
             self.statsAllowed += 1
+            self.recordEvent(type: .allowed, connId: id, host: host, port: port, detail: "TCP CONNECT")
             self.connectToTarget(client: client, host: host, port: port, id: id)
         }
     }
@@ -578,6 +624,7 @@ final class SOCKSProxyServer {
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
             self.log.log("SOCKS5 #\(id): invalid port \(port)")
             self.statsErrors += 1
+            self.activeConnectionCount -= 1
             self.sendSocksError(client: client, reply: 0x05)
             return
         }
@@ -618,6 +665,7 @@ final class SOCKSProxyServer {
                 timeout.cancel()
                 self.log.log("SOCKS5 #\(id): target failed \(host):\(port) — \(error)")
                 self.statsErrors += 1
+                self.recordEvent(type: .error, connId: id, host: host, port: port, detail: "Target connection failed: \(error.localizedDescription)")
                 self.logRelayEnd(tracker: tracker, reason: "target-failed")
                 self.sendSocksError(client: client, reply: 0x05)
                 target.cancel()
@@ -663,10 +711,16 @@ final class SOCKSProxyServer {
     private func logRelayEnd(tracker: RelayTracker, reason: String) {
         guard !tracker.logged else { return }
         tracker.logged = true
+        activeConnectionCount = max(activeConnectionCount - 1, 0)
         let duration = String(format: "%.1f", Date().timeIntervalSince(tracker.startTime))
         let totalBytes = tracker.bytesUp + tracker.bytesDown
         let sniStr = tracker.sni ?? "n/a"
-        log.logConnection("RELAY #\(tracker.id): \(tracker.host):\(tracker.port) SNI=\(sniStr) — \(reason) — \(duration)s — up:\(tracker.bytesUp)B down:\(tracker.bytesDown)B total:\(totalBytes)B")
+        log.logConnection("RELAY #\(tracker.id): \(tracker.host):\(tracker.port) SNI=\(sniStr) — \(reason) — \(duration)s — up:\(tracker.bytesUp)B down:\(tracker.bytesDown)B total:\(totalBytes)B (active:\(activeConnectionCount))")
+
+        // Record completed event (unless already recorded as stream-blocked or error)
+        if reason != "stream-blocked" && reason != "target-failed" {
+            recordEvent(type: .completed, connId: tracker.id, host: tracker.host, port: tracker.port, sni: tracker.sni, detail: "\(reason) — \(duration)s — \(totalBytes)B", bytesDown: tracker.bytesDown)
+        }
 
         // Update domain stats
         let domain = tracker.sni ?? tracker.host
@@ -773,6 +827,18 @@ final class SOCKSProxyServer {
                     }
                 case .download:
                     tracker.bytesDown += data.count
+
+                    // Stream blocking: per-domain byte thresholds
+                    if let sni = tracker.sni,
+                       let threshold = self.filter.streamBlockThreshold(for: sni),
+                       tracker.bytesDown > threshold {
+                        self.log.log("STREAM BLOCK #\(tracker.id): killed \(sni) at \(tracker.bytesDown)B (threshold: \(threshold)B)")
+                        self.recordEvent(type: .streamBlocked, connId: tracker.id, host: tracker.host, port: tracker.port, sni: sni, detail: "Killed at \(tracker.bytesDown)B (threshold: \(threshold)B)", bytesDown: tracker.bytesDown)
+                        self.logRelayEnd(tracker: tracker, reason: "stream-blocked")
+                        source.cancel()
+                        destination.cancel()
+                        return
+                    }
                 }
                 destination.send(content: data, completion: .contentProcessed { sendError in
                     if sendError != nil {
@@ -804,6 +870,20 @@ final class SOCKSProxyServer {
         client.send(content: data, completion: .contentProcessed { _ in
             client.cancel()
         })
+    }
+
+    private static func memoryUsageMB() -> String {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        if result == KERN_SUCCESS {
+            return String(format: "%.1f", Double(info.resident_size) / 1_048_576)
+        }
+        return "?"
     }
 
     private func buildSocksReply(reply: UInt8, atyp: UInt8, addr: [UInt8], port: UInt16) -> Data {

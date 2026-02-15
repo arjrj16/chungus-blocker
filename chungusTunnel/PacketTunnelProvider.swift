@@ -87,13 +87,49 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
-        log.log("========== TUNNEL STOPPING (reason: \(reason.rawValue)) ==========")
+        let reasonName: String
+        switch reason {
+        case .none: reasonName = "none"
+        case .userInitiated: reasonName = "userInitiated"
+        case .providerFailed: reasonName = "providerFailed"
+        case .noNetworkAvailable: reasonName = "noNetworkAvailable"
+        case .unrecoverableNetworkChange: reasonName = "unrecoverableNetworkChange"
+        case .providerDisabled: reasonName = "providerDisabled"
+        case .authenticationCanceled: reasonName = "authenticationCanceled"
+        case .configurationFailed: reasonName = "configurationFailed"
+        case .idleTimeout: reasonName = "idleTimeout"
+        case .configurationDisabled: reasonName = "configurationDisabled"
+        case .configurationRemoved: reasonName = "configurationRemoved"
+        case .superceded: reasonName = "superceded"
+        case .userLogout: reasonName = "userLogout"
+        case .userSwitch: reasonName = "userSwitch"
+        case .connectionFailed: reasonName = "connectionFailed"
+        case .sleep: reasonName = "sleep"
+        case .appUpdate: reasonName = "appUpdate"
+        default: reasonName = "unknown(\(reason.rawValue))"
+        }
+        log.log("========== TUNNEL STOPPING (reason: \(reasonName) / \(reason.rawValue)) ==========")
         let stats = Socks5Tunnel.stats
         log.log("Final stats — Up: \(stats.up.packets) pkts / \(stats.up.bytes) bytes, Down: \(stats.down.packets) pkts / \(stats.down.bytes) bytes")
+        log.log("Memory: \(Self.memoryUsageMB()) MB")
         Socks5Tunnel.quit()
         proxyServer?.stop()
         proxyServer = nil
         completionHandler()
+    }
+
+    private static func memoryUsageMB() -> String {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        if result == KERN_SUCCESS {
+            return String(format: "%.1f", Double(info.resident_size) / 1_048_576)
+        }
+        return "?"
     }
 
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {

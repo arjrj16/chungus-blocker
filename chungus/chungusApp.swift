@@ -13,7 +13,9 @@ struct chungusApp: App {
         // Register default so the tunnel extension always sees blocking enabled
         // even before the user interacts with the toggle.
         UserDefaults(suiteName: BubbleConstants.appGroupID)?
-            .register(defaults: [BubbleConstants.blockReelsEnabledKey: true])
+            .register(defaults: [
+                BubbleConstants.blockReelsEnabledKey: true
+            ])
     }
 
     var body: some Scene {
