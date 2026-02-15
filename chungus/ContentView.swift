@@ -41,6 +41,19 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 40)
 
+                NavigationLink {
+                    TrafficDashboardView()
+                } label: {
+                    Text("Traffic Dashboard")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.purple)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal, 40)
+
                 Toggle("Block Reels", isOn: $blockReelsEnabled)
                     .padding(.horizontal, 40)
 

@@ -31,6 +31,8 @@ enum BubbleConstants {
     static let logFileName = "tunnel_log.txt"
     static let maxLogSizeBytes = 512 * 1024
     static let maxStatusLogEntries = 200
+    static let logSubsystem = "com.arjun.chungus.chungusTunnel"
+    static let statsFileName = "traffic_stats.json"
 
     // MARK: - UserDefaults Keys
     static let blockReelsEnabledKey = "blockReelsEnabled"

@@ -60,8 +60,23 @@ final class SOCKSProxyServer {
     private var statsErrors = 0
     private var statsTimer: DispatchSourceTimer?
 
+    // Active relay tracking for JSON stats
+    private var activeRelays: [Int: RelayTracker] = [:]
+    private var domainStats: [String: (count: Int, bytes: Int)] = [:]
+    private var snapshotTimer: DispatchSourceTimer?
+    private var snapshotHistory: [TrafficSnapshot] = []
+    private let maxSnapshotHistory = 300 // 5 minutes at 1/sec
+    private let statsFileURL: URL?
+
     init(filter: ConnectionFilter) {
         self.filter = filter
+        if let container = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: BubbleConstants.appGroupID
+        ) {
+            self.statsFileURL = container.appendingPathComponent(BubbleConstants.statsFileName)
+        } else {
+            self.statsFileURL = nil
+        }
     }
 
     // MARK: - Lifecycle
@@ -124,12 +139,15 @@ final class SOCKSProxyServer {
 
         listener.start(queue: queue)
         startStatsTimer()
+        startSnapshotTimer()
     }
 
     func stop() {
         queue.sync {
             statsTimer?.cancel()
             statsTimer = nil
+            snapshotTimer?.cancel()
+            snapshotTimer = nil
         }
         listener?.cancel()
         listener = nil
@@ -146,6 +164,67 @@ final class SOCKSProxyServer {
         }
         timer.resume()
         statsTimer = timer
+    }
+
+    // MARK: - JSON Snapshot Writer
+
+    private func startSnapshotTimer() {
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 1.0, repeating: 1.0)
+        timer.setEventHandler { [weak self] in
+            self?.writeSnapshot()
+        }
+        timer.resume()
+        snapshotTimer = timer
+    }
+
+    private func writeSnapshot() {
+        guard let fileURL = statsFileURL else { return }
+
+        let connections = activeRelays.values.map { tracker in
+            ConnectionSnapshot(
+                id: tracker.id,
+                host: tracker.host,
+                port: tracker.port,
+                sni: tracker.sni,
+                startTime: tracker.startTime,
+                bytesUp: tracker.bytesUp,
+                bytesDown: tracker.bytesDown,
+                isActive: !tracker.logged
+            )
+        }.sorted { $0.id > $1.id }
+
+        let stats = StatsSnapshot(
+            totalConns: connectionCount,
+            tcpAllowed: statsAllowed,
+            tcpBlocked: statsBlocked,
+            udpRelayed: statsUDP,
+            errors: statsErrors
+        )
+
+        let topDomains = domainStats
+            .map { DomainSnapshot(domain: $0.key, count: $0.value.count, totalBytes: $0.value.bytes) }
+            .sorted { $0.totalBytes > $1.totalBytes }
+            .prefix(10)
+
+        let snapshot = TrafficSnapshot(
+            timestamp: Date(),
+            connections: connections,
+            stats: stats,
+            topDomains: Array(topDomains)
+        )
+
+        // Append to ring buffer
+        snapshotHistory.append(snapshot)
+        if snapshotHistory.count > maxSnapshotHistory {
+            snapshotHistory.removeFirst(snapshotHistory.count - maxSnapshotHistory)
+        }
+
+        // Write full history array so the app gets all snapshots even when backgrounded
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(snapshotHistory) else { return }
+        try? data.write(to: fileURL, options: .atomic)
     }
 
     // MARK: - Connection Handling
@@ -507,6 +586,7 @@ final class SOCKSProxyServer {
 
         // Track bytes for diagnostic logging
         let tracker = RelayTracker(id: id, host: host, port: port)
+        activeRelays[id] = tracker
 
         // TCP relay timeout — cancel both sides if idle too long
         let timeout = DispatchWorkItem { [weak self] in
@@ -570,6 +650,8 @@ final class SOCKSProxyServer {
         var bytesUp: Int = 0
         var bytesDown: Int = 0
         var logged = false
+        var sni: String?
+        var sniExtracted = false
 
         init(id: Int, host: String, port: UInt16) {
             self.id = id
@@ -583,7 +665,93 @@ final class SOCKSProxyServer {
         tracker.logged = true
         let duration = String(format: "%.1f", Date().timeIntervalSince(tracker.startTime))
         let totalBytes = tracker.bytesUp + tracker.bytesDown
-        log.log("RELAY #\(tracker.id): \(tracker.host):\(tracker.port) — \(reason) — \(duration)s — up:\(tracker.bytesUp)B down:\(tracker.bytesDown)B total:\(totalBytes)B")
+        let sniStr = tracker.sni ?? "n/a"
+        log.logConnection("RELAY #\(tracker.id): \(tracker.host):\(tracker.port) SNI=\(sniStr) — \(reason) — \(duration)s — up:\(tracker.bytesUp)B down:\(tracker.bytesDown)B total:\(totalBytes)B")
+
+        // Update domain stats
+        let domain = tracker.sni ?? tracker.host
+        let current = domainStats[domain] ?? (count: 0, bytes: 0)
+        domainStats[domain] = (count: current.count + 1, bytes: current.bytes + totalBytes)
+
+        // Remove from active relays after 5s (so dashboard sees the final state briefly)
+        let relayId = tracker.id
+        queue.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+            self?.activeRelays.removeValue(forKey: relayId)
+        }
+    }
+
+    // MARK: - TLS SNI Parser
+
+    /// Extracts the SNI (Server Name Indication) from a TLS ClientHello message.
+    /// The ClientHello is the first thing the client sends on a TLS connection,
+    /// and the SNI extension contains the plaintext domain name.
+    private func extractSNI(from data: Data) -> String? {
+        let bytes = [UInt8](data)
+        // TLS record: [ContentType(1)][Version(2)][Length(2)][Handshake...]
+        guard bytes.count >= 5,
+              bytes[0] == 0x16,         // ContentType: Handshake
+              bytes[1] == 0x03          // TLS major version 3.x
+        else { return nil }
+
+        let recordLen = (Int(bytes[3]) << 8) | Int(bytes[4])
+        guard bytes.count >= 5 + recordLen else { return nil }
+
+        // Handshake: [Type(1)][Length(3)][ClientHello...]
+        let hsStart = 5
+        guard bytes.count > hsStart,
+              bytes[hsStart] == 0x01    // HandshakeType: ClientHello
+        else { return nil }
+
+        // ClientHello body starts at hsStart + 4
+        let chStart = hsStart + 4
+        // ClientHello: [Version(2)][Random(32)][SessionIDLen(1)][SessionID...]
+        guard bytes.count >= chStart + 2 + 32 + 1 else { return nil }
+
+        var offset = chStart + 2 + 32 // skip version + random
+
+        // Session ID
+        let sessionIDLen = Int(bytes[offset])
+        offset += 1 + sessionIDLen
+
+        // Cipher suites: [Length(2)][...]
+        guard bytes.count >= offset + 2 else { return nil }
+        let cipherLen = (Int(bytes[offset]) << 8) | Int(bytes[offset + 1])
+        offset += 2 + cipherLen
+
+        // Compression methods: [Length(1)][...]
+        guard bytes.count >= offset + 1 else { return nil }
+        let compLen = Int(bytes[offset])
+        offset += 1 + compLen
+
+        // Extensions: [TotalLength(2)][Extension...]
+        guard bytes.count >= offset + 2 else { return nil }
+        let extTotalLen = (Int(bytes[offset]) << 8) | Int(bytes[offset + 1])
+        offset += 2
+
+        let extEnd = min(offset + extTotalLen, bytes.count)
+
+        // Walk extensions looking for SNI (type 0x0000)
+        while offset + 4 <= extEnd {
+            let extType = (Int(bytes[offset]) << 8) | Int(bytes[offset + 1])
+            let extLen = (Int(bytes[offset + 2]) << 8) | Int(bytes[offset + 3])
+            offset += 4
+
+            if extType == 0x0000 { // SNI extension
+                // SNI extension data: [ListLength(2)][Type(1)][NameLength(2)][Name...]
+                guard offset + 5 <= extEnd else { return nil }
+                // skip list length (2 bytes)
+                let nameType = bytes[offset + 2]
+                guard nameType == 0x00 else { return nil } // host_name type
+                let nameLen = (Int(bytes[offset + 3]) << 8) | Int(bytes[offset + 4])
+                let nameStart = offset + 5
+                guard nameStart + nameLen <= bytes.count else { return nil }
+                return String(bytes: Array(bytes[nameStart..<(nameStart + nameLen)]), encoding: .utf8)
+            }
+
+            offset += extLen
+        }
+
+        return nil
     }
 
     // MARK: - Bidirectional Relay
@@ -593,8 +761,18 @@ final class SOCKSProxyServer {
             guard let self = self else { return }
             if let data = data, !data.isEmpty {
                 switch direction {
-                case .upload: tracker.bytesUp += data.count
-                case .download: tracker.bytesDown += data.count
+                case .upload:
+                    tracker.bytesUp += data.count
+                    // Extract SNI from the first upload packet (TLS ClientHello)
+                    if !tracker.sniExtracted {
+                        tracker.sniExtracted = true
+                        if let sni = self.extractSNI(from: data) {
+                            tracker.sni = sni
+                            self.log.logConnection("TCP #\(tracker.id): SNI=\(sni) IP=\(tracker.host):\(tracker.port)")
+                        }
+                    }
+                case .download:
+                    tracker.bytesDown += data.count
                 }
                 destination.send(content: data, completion: .contentProcessed { sendError in
                     if sendError != nil {

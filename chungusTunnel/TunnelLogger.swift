@@ -1,13 +1,27 @@
 import Foundation
+import os
 
-/// Writes log lines to a shared file in the app group container so the main app can display them.
-/// Both the app and extension have access via the shared app group.
+/// Writes log lines to both:
+/// 1. Apple's unified logging system (streamable via `log stream` over USB)
+/// 2. A shared file in the app group container (viewable in-app)
 final class TunnelLogger {
 
     static let shared = TunnelLogger()
 
     private let fileURL: URL?
     private let lock = NSLock()
+
+    // os.Logger for real-time streaming to Mac via USB
+    private static let osLog = Logger(
+        subsystem: BubbleConstants.logSubsystem,
+        category: "tunnel"
+    )
+
+    // Separate logger for per-connection data (filterable)
+    static let connectionLog = Logger(
+        subsystem: BubbleConstants.logSubsystem,
+        category: "connection"
+    )
 
     private static let dateFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -26,7 +40,8 @@ final class TunnelLogger {
         let timestamp = Self.dateFormatter.string(from: Date())
         let line = "[\(timestamp)] [\(function)] \(message)\n"
 
-        NSLog("[TunnelLog] %@", message)
+        // Stream to Mac via USB (Console.app / `log stream`)
+        Self.osLog.log("[\(function, privacy: .public)] \(message, privacy: .public)")
 
         guard let fileURL = fileURL else { return }
 
@@ -49,6 +64,13 @@ final class TunnelLogger {
         } else {
             try? line.data(using: .utf8)?.write(to: fileURL, options: .atomic)
         }
+    }
+
+    /// Log connection-level data to the "connection" category for filtering
+    func logConnection(_ message: String) {
+        Self.connectionLog.log("\(message, privacy: .public)")
+        // Also write to file for in-app viewing
+        log(message)
     }
 
     func clear() {
