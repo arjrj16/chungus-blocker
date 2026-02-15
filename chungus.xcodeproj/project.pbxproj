@@ -6,14 +6,64 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		BB51A6B72F41372300429707 /* Tun2SocksKit in Frameworks */ = {isa = PBXBuildFile; productRef = BBD2D9D22F40B00000A76FEF /* Tun2SocksKit */; };
+		BBD2D9C32F40A63D00A76FEF /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BBD2D9C22F40A63D00A76FEF /* NetworkExtension.framework */; };
+		BBD2D9CB2F40A63D00A76FEF /* chungusTunnel.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BBD2D9C02F40A63D00A76FEF /* chungusTunnel.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BBD2D9C92F40A63D00A76FEF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BBD2D9A62F40A3C300A76FEF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BBD2D9BF2F40A63D00A76FEF;
+			remoteInfo = chungusTunnel;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BBD2D9D02F40A63D00A76FEF /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BBD2D9CB2F40A63D00A76FEF /* chungusTunnel.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		BBD2D9AE2F40A3C300A76FEF /* chungus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = chungus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBD2D9C02F40A63D00A76FEF /* chungusTunnel.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = chungusTunnel.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBD2D9C22F40A63D00A76FEF /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		BBD2D9CC2F40A63D00A76FEF /* Exceptions for "chungusTunnel" folder in "chungusTunnel" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = BBD2D9BF2F40A63D00A76FEF /* chungusTunnel */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		BBD2D9B02F40A3C300A76FEF /* chungus */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = chungus;
+			sourceTree = "<group>";
+		};
+		BBD2D9C42F40A63D00A76FEF /* chungusTunnel */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BBD2D9CC2F40A63D00A76FEF /* Exceptions for "chungusTunnel" folder in "chungusTunnel" target */,
+			);
+			path = chungusTunnel;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -26,6 +76,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BBD2D9BD2F40A63D00A76FEF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB51A6B72F41372300429707 /* Tun2SocksKit in Frameworks */,
+				BBD2D9C32F40A63D00A76FEF /* NetworkExtension.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -33,6 +92,8 @@
 			isa = PBXGroup;
 			children = (
 				BBD2D9B02F40A3C300A76FEF /* chungus */,
+				BBD2D9C42F40A63D00A76FEF /* chungusTunnel */,
+				BBD2D9C12F40A63D00A76FEF /* Frameworks */,
 				BBD2D9AF2F40A3C300A76FEF /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +102,17 @@
 			isa = PBXGroup;
 			children = (
 				BBD2D9AE2F40A3C300A76FEF /* chungus.app */,
+				BBD2D9C02F40A63D00A76FEF /* chungusTunnel.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		BBD2D9C12F40A63D00A76FEF /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BBD2D9C22F40A63D00A76FEF /* NetworkExtension.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,10 +125,12 @@
 				BBD2D9AA2F40A3C300A76FEF /* Sources */,
 				BBD2D9AB2F40A3C300A76FEF /* Frameworks */,
 				BBD2D9AC2F40A3C300A76FEF /* Resources */,
+				BBD2D9D02F40A63D00A76FEF /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BBD2D9CA2F40A63D00A76FEF /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				BBD2D9B02F40A3C300A76FEF /* chungus */,
@@ -69,6 +141,29 @@
 			productName = chungus;
 			productReference = BBD2D9AE2F40A3C300A76FEF /* chungus.app */;
 			productType = "com.apple.product-type.application";
+		};
+		BBD2D9BF2F40A63D00A76FEF /* chungusTunnel */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BBD2D9CD2F40A63D00A76FEF /* Build configuration list for PBXNativeTarget "chungusTunnel" */;
+			buildPhases = (
+				BBD2D9BC2F40A63D00A76FEF /* Sources */,
+				BBD2D9BD2F40A63D00A76FEF /* Frameworks */,
+				BBD2D9BE2F40A63D00A76FEF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BBD2D9C42F40A63D00A76FEF /* chungusTunnel */,
+			);
+			name = chungusTunnel;
+			packageProductDependencies = (
+				BBD2D9D22F40B00000A76FEF /* Tun2SocksKit */,
+			);
+			productName = chungusTunnel;
+			productReference = BBD2D9C02F40A63D00A76FEF /* chungusTunnel.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -83,6 +178,9 @@
 					BBD2D9AD2F40A3C300A76FEF = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					BBD2D9BF2F40A63D00A76FEF = {
+						CreatedOnToolsVersion = 26.2;
+					};
 				};
 			};
 			buildConfigurationList = BBD2D9A92F40A3C300A76FEF /* Build configuration list for PBXProject "chungus" */;
@@ -94,18 +192,29 @@
 			);
 			mainGroup = BBD2D9A52F40A3C300A76FEF;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BBD2D9D12F40B00000A76FEF /* XCRemoteSwiftPackageReference "Tun2SocksKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BBD2D9AF2F40A3C300A76FEF /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				BBD2D9AD2F40A3C300A76FEF /* chungus */,
+				BBD2D9BF2F40A63D00A76FEF /* chungusTunnel */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		BBD2D9AC2F40A3C300A76FEF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BBD2D9BE2F40A63D00A76FEF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +231,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BBD2D9BC2F40A63D00A76FEF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BBD2D9CA2F40A63D00A76FEF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BBD2D9BF2F40A63D00A76FEF /* chungusTunnel */;
+			targetProxy = BBD2D9C92F40A63D00A76FEF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BBD2D9B72F40A3C400A76FEF /* Debug */ = {
@@ -244,8 +368,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = chungus/chungus.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KSW886X5UX;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -286,8 +412,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = chungus/chungus.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KSW886X5UX;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -323,6 +451,69 @@
 			};
 			name = Release;
 		};
+		BBD2D9CE2F40A63D00A76FEF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = chungusTunnel/chungusTunnel.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KSW886X5UX;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = chungusTunnel/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = chungusTunnel;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arjun.chungus.chungusTunnel;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BBD2D9CF2F40A63D00A76FEF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = chungusTunnel/chungusTunnel.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = KSW886X5UX;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = chungusTunnel/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = chungusTunnel;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arjun.chungus.chungusTunnel;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -344,7 +535,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		BBD2D9CD2F40A63D00A76FEF /* Build configuration list for PBXNativeTarget "chungusTunnel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBD2D9CE2F40A63D00A76FEF /* Debug */,
+				BBD2D9CF2F40A63D00A76FEF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BBD2D9D12F40B00000A76FEF /* XCRemoteSwiftPackageReference "Tun2SocksKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/EbrahimTahernejad/Tun2SocksKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.14.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BBD2D9D22F40B00000A76FEF /* Tun2SocksKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BBD2D9D12F40B00000A76FEF /* XCRemoteSwiftPackageReference "Tun2SocksKit" */;
+			productName = Tun2SocksKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = BBD2D9A62F40A3C300A76FEF /* Project object */;
 }
